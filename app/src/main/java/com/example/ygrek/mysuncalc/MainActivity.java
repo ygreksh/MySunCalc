@@ -37,16 +37,13 @@ public class MainActivity extends AppCompatActivity {
         textViewFragmHourOfDay.setText("FragmHour of day: " + fragmHourOfDay);
 
         TextView textViewTimeFromFragmHour = (TextView) findViewById(R.id.textViewTimeFromFragmHour);
-        Calendar time = AstroCalc.getTimaFromFragmentaryHours(fragmHourOfDay);
+        Calendar time = AstroCalc.getTimeFromFragmentaryHours(fragmHourOfDay);
         textViewTimeFromFragmHour.setText("Time from fragm: " + time.get(Calendar.HOUR_OF_DAY) + ":" + time.get(Calendar.MINUTE) + ":" + time.get(Calendar.SECOND));
 
         TextView textViewUTDate = (TextView) findViewById(R.id.textViewUTDate);
         Calendar UTdate = AstroCalc.convertToUT(date, 2);
         textViewUTDate.setText("UT date: " + UTdate.getTime().toString());
 
-        TextView textViewEasterDate = (TextView) findViewById(R.id.textViewEasterDate);
-        Calendar easterDate = AstroCalc.getPravoslavEasterDate(date);
-        textViewEasterDate.setText("Easter date: " + easterDate.get(Calendar.DAY_OF_MONTH) + " " + (easterDate.get(Calendar.MONTH)+1));
 
         EditText editTextLat = (EditText) findViewById(R.id.editTextLat);
         EditText editTextLng = (EditText) findViewById(R.id.editTextLng);
@@ -54,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         double lng = Double.parseDouble(editTextLng.getText().toString());
 
         AstroCalc.getSunPosition(lat, lng, date);
-        double Azimuth = AstroCalc.SunAzimith * AstroCalc.Rad2Deg;
+        double Azimuth = AstroCalc.SunAzimuth * AstroCalc.Rad2Deg;
         double Altitude = AstroCalc.SunAltitude * AstroCalc.Rad2Deg;
 
         TextView textViewSunPos = (TextView) findViewById(R.id.textViewSunPos);

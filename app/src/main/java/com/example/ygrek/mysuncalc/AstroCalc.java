@@ -1,6 +1,7 @@
 package com.example.ygrek.mysuncalc;
 
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 
 /**
@@ -8,13 +9,35 @@ import java.util.GregorianCalendar;
  */
 
 public class AstroCalc {
-    public static double SunAzimith;
+
+    public static double SunAzimuth;
     public static double SunAltitude;
-    public static double Deg2Rad = 0.01745329251994329576923690768489;
-    public static double Rad2Deg = 1 / Deg2Rad;
+
+    public static final double Deg2Rad = 0.01745329251994329576923690768489;
+    public static final double Rad2Deg = 1 / Deg2Rad;
 
     //вычисление Юлианской даты
     public static double getJD(Calendar date){
+        int y = date.get(Calendar.YEAR);
+        int m = date.get(Calendar.MONTH)+1;
+        int d = date.get(Calendar.DAY_OF_MONTH);
+        if (m==1 || m==2){
+            y = y-1;
+            m = m+12;
+        }
+        int B = 0;
+        if (date.after(new GregorianCalendar(1582,Calendar.OCTOBER,15))) {
+            int A = y/100;
+            B = 2 - A + A/4;
+        }
+        int C = (int) (365.25*y);
+        int D = (int) (30.6001*(m+1));
+        double JD = B + C + D + d + 1720994.5;
+
+        return JD;
+    }
+    //вычисление дробной юлианской даты с учетом времени дня
+    public static double fragmentarygetJD(Calendar date){
         int y = date.get(Calendar.YEAR);
         int m = date.get(Calendar.MONTH)+1;
         int d = date.get(Calendar.DAY_OF_MONTH);
@@ -33,25 +56,6 @@ public class AstroCalc {
         double JD = B + C + D + d + fragmentOfDay + 1720994.5;
 
         return JD;
-    }
-    public static double getMJD(Calendar date){
-        int year = date.get(Calendar.YEAR);
-        int month = date.get(Calendar.MONTH)+1;
-        int day = date.get(Calendar.DAY_OF_MONTH);
-        long var1 = 10000*year + 100*month + day;
-        long var2;
-        if (month <= 2){
-            month = month+12;
-            year = year - 1;
-        }
-        if (var1 <= 15821004) {
-            var2 = -2 + (year + 4716)/4 - 1179;
-        } else {
-            var2 = year/400 - year/100 + year/4;
-        }
-        long var3 = 365*year - 679004;
-        long MD = var3 + var2 + 306001*(month+1)/1000 + day;
-        return MD;
     }
     //получение дробной части дня из времени дна (полдень = 0.5)
     public static double getFragmentaryOfDayByTime(Calendar time){
@@ -72,7 +76,7 @@ public class AstroCalc {
         int dayOfWeek = (int) Math.abs(remainderOfA * 7);
         return dayOfWeek;
     }
-    //вычисление дробного представления времени в часах
+    //вычисление дробного представления времени в часах (0.0-24.0)
     public static double getFragmentaryHourOfDay(Calendar time){
         int hour = time.get(Calendar.HOUR_OF_DAY);
         int min = time.get(Calendar.MINUTE);
@@ -82,7 +86,7 @@ public class AstroCalc {
         return fragmHour;
     }
     //Перевод из дробных часов в нормальные часы минуты и секунды
-    public static Calendar getTimaFromFragmentaryHours(double fragmHour){
+    public static Calendar getTimeFromFragmentaryHours(double fragmHour){
         int h = (int) Math.floor(fragmHour);
         double fh = fragmHour-(double)h;
         double fm = fh*60;
@@ -99,7 +103,7 @@ public class AstroCalc {
         double fragmHour = AstroCalc.getFragmentaryHourOfDay(date);
         //fragmHour -= date.getTimeZone().getDSTSavings();
         fragmHour -= timeZone;
-        Calendar tempDate = AstroCalc.getTimaFromFragmentaryHours(fragmHour);
+        Calendar tempDate = AstroCalc.getTimeFromFragmentaryHours(fragmHour);
         Calendar UTdate = new GregorianCalendar();
         UTdate.setTime(date.getTime());
         UTdate.set(Calendar.HOUR_OF_DAY,tempDate.get(Calendar.HOUR_OF_DAY));
@@ -162,6 +166,44 @@ public class AstroCalc {
 
         return easterDate;
     }
+
+    //Дробные градусы из градусов минут и секунд
+    public static double convertAngleToFragmentaryDegrees(double deg, double min, double sec){
+        min = min + sec/60.0;
+        deg = deg + min;
+        return deg;
+    }
+
+    //вычисление постоянной B дял вычисления звездного времени
+    public static double calcB(Calendar date){
+        date.set(Calendar.MONTH,0);
+        date.set(Calendar.DAY_OF_MONTH,1);
+        //date.add(Calendar.DATE,-1);
+        int year = date.get(Calendar.YEAR);
+        double JD = getJD(date)-1;
+        double S = JD - 2415020.0;
+        double T = S/36525.0;
+        double R = 6.6460656 + 2400.051262*T+0.00002581*T*T;
+        double U = R - 24.0*(year - 1900);
+        double B = 24 - U;
+        return B;
+    }
+
+    //Перевод из Гринвичского среднего времени (GMT) в гринвичское звездное время (GST)
+   public static double convertTimeGMTToGST(Calendar GMTdate){
+       double A = 0.0657098;
+       double C = 1.002738;
+       //double D = 0.997270;
+       double B = calcB(GMTdate);
+
+       double T = (double) GMTdate.get(Calendar.DAY_OF_YEAR);
+       double T0 = T*A - B;
+       double fragmHourGMT = getFragmentaryHourOfDay(GMTdate);
+       double fragmHourGST = fragmHourGMT*C + T0;
+       if (fragmHourGST > 24) fragmHourGST -= 24;
+       if (fragmHourGST < 0) fragmHourGST += 24;
+       return fragmHourGST;
+   }
     //Вычисление положения Солнца
     public static void getSunPosition(double lat, double lng, Calendar date){
         // 0. Перевод времени в UT
@@ -192,8 +234,8 @@ public class AstroCalc {
             var2 = year/400 - year/100 + year/4;
         }
         long var3 = 365*year - 679004;
-        long MD = var3 + var2 + 306001*(month+1)/1000 + day;
-        //MD = (long) getJD(date);
+        double MD = var3 + var2 + 306001*(month+1)/1000 + day;
+        MD = getJD(date) - 2400000;
 
         // 2. Вычисление местного звездного времени
         /*
@@ -210,7 +252,7 @@ public class AstroCalc {
         ST = SG + Lon ‘ местное звездное время
         Lon – долгота наблюдателя
          */
-        double T0 = ((double) MD - 51544.5) / 36525;
+        double T0 = (MD - 51544.5) / 36525;
         double a1 = 24110.54841;
         double a2 = 8640184.812;
         double a3 = 0.093104;
@@ -283,6 +325,68 @@ public class AstroCalc {
         double TgAz = Math.sin(Th) * Math.cos(Dec) * Math.cos(lat) / (Math.sin(H) * Math.sin(lat) - Math.sin(Dec));
         double Az = Math.atan(TgAz);
         SunAltitude = H;
-        SunAzimith = Az;
+        SunAzimuth = Az;
     }
+    //Вычисление Солнца 2 вариант
+    public static void getSunPos2(double lat, double lng, Calendar date){
+        // 0. Некоторые табличные и постоянные
+        //double Eg = 278.833540; //Эклиптическая долгота в эпоху 1980.0 в градусах
+        double Eg = 289.97232199731; //Эклиптическая долгота в эпоху 2017 в градусах
+        double omegag = 282.596403; //Эклиптическая долгота в перигее
+        double e = 0.016718; //эксцентриситет орбиты
+        double r0 = 1.495985e8; //большая полуось в км
+        double fi0 = 0.533128; // угловой диаметр при r = r0 в градусах
+        double Pi = 3.1415927; //число Пи
+
+        // 1-2. Опреедлим число суток от начала данного года
+        date = convertToUT(date,2);
+        int D = (int) getFragmentaryOfDayByTime(date);
+
+        // 3. Вычислим N
+        double N = 360.0*D/365.2422;
+        if (N > 360) N-=360;
+        if (N < 360) N+=360;
+
+        // 4.
+        double M = N + Eg - omegag;
+        if (M < 0) M += 360;
+
+        // 5.
+        double Ec = 360 * e * Math.sin(M) / Pi;
+
+        // 6. Эклиптическа долгота Солнца
+        double lambda = N + Ec + Eg;
+        if (Ec > 360) Ec = Ec - 360;
+
+        // 7. Прямое восхождение alfa и склонение delta
+        double beta = 0;
+        double alfa = Math.atan((Math.sin(lambda)*Math.cos(e) - Math.tan(beta)*Math.sin(e)) / Math.cos(lambda));
+        double delta = Math.asin(Math.sin(beta)*Math.cos(e) + Math.cos(beta)*Math.sin(e)*Math.sin(lambda));
+
+        // 8. Азимут и высота в точке наблюдения
+        //Местное звездное время
+        /*
+        double T0 = ((double) MD - 51544.5) / 36525;
+        double a1 = 24110.54841;
+        double a2 = 8640184.812;
+        double a3 = 0.093104;
+        double a4 = 0.0000062;
+        double S0 = a1 + a2 * T0 + a3 * T0*T0 - a4 * T0*T0*T0;
+        double Nsec = UT * 3600;
+        double NsecS = Nsec*366.2422/365.2422;
+        double SG = (S0 + NsecS) /3600 * 15;
+        double ST = SG + lng;
+        */
+        double LST = 0; //местное звездное время
+        double H = LST - alfa; //Часовой уголж
+        double sin_a = Math.sin(delta)*Math.sin(lat) + Math.cos(delta)*Math.cos(lat)*Math.cos(H);
+        double a = Math.asin(sin_a); //Высота
+        double cos_A = (Math.sin(delta) - Math.sin(lat)*Math.sin(a)) / (Math.cos(lat)*Math.cos(a));
+        double A = Math.acos(cos_A); //Азимут
+
+        SunAzimuth = A;
+        SunAltitude = a;
+
+    }
+
 }
